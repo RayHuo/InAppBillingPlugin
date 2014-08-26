@@ -53,7 +53,7 @@ public class WechatPlugin extends CordovaPlugin {
 			// req.openId = getOpenId();
 			boolean sendResult = api.sendReq(req);
 			Toast.makeText(context, "Send Result = " + sendResult, Toast.LENGTH_LONG).show();
-//			callbackContext.success("Send success!");
+			callbackContext.success("Send success!");
 			return true;
 		}
 		else {
