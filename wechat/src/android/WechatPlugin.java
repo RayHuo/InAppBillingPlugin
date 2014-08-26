@@ -7,9 +7,16 @@ import org.apache.cordova.CordovaWebView;
 import org.json.JSONArray;
 import org.json.JSONException;
 
+import com.tencent.mm.sdk.modelmsg.SendMessageToWX;
+import com.tencent.mm.sdk.modelmsg.WXMediaMessage;
+import com.tencent.mm.sdk.modelmsg.WXTextObject;
+import com.tencent.mm.sdk.openapi.IWXAPI;
+import com.tencent.mm.sdk.openapi.WXAPIFactory;
+
 import android.content.Context;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+import android.widget.Toast;
 
 public class WechatPlugin extends CordovaPlugin {
 	public static final String TAG = "WechatPlugin";
@@ -28,7 +35,7 @@ public class WechatPlugin extends CordovaPlugin {
 	public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
 		this.callbackContext = callbackContext;
 		if(ACTION_GET_CARRIER_CODE.equals(action)) {
-			api = WXAPIFactory.createWXAPI(this, APP_ID);
+			api = WXAPIFactory.createWXAPI(context, APP_ID);
 			api.registerApp(APP_ID);
 
 			String text = "Wechat Text";
@@ -45,8 +52,8 @@ public class WechatPlugin extends CordovaPlugin {
 			req.scene = SendMessageToWX.Req.WXSceneSession;
 			// req.openId = getOpenId();
 			boolean sendResult = api.sendReq(req);
-			Toast.makeText(WechatPlugin.this, "Send Result = " + sendResult, Toast.LENGTH_LONG).show();
-			callbackContext.success("Send success!");
+			Toast.makeText(context, "Send Result = " + sendResult, Toast.LENGTH_LONG).show();
+//			callbackContext.success("Send success!");
 			return true;
 		}
 		else {
