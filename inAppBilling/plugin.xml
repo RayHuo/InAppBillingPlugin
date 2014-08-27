@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+		id="com.intel.cordova.inAppBilling"
+		version="0.0.1">
+	<name>InAppBillingPlugin</name>
+	<description>InAppBillingPlugin Description</description>
+	<author>Intel</author>
+	<license>Apache 2.0 License</license>
+	<keywords>cordova, inAppBilling</keywords>
+	<js-module src="www/inAppBilling.js" name="inAppBilling">
+		<clobbers target="InAppBilling" />
+	</js-module>
+	<platform name="android">
+		<source-file src="src/android/InAppBillingPlugin.java" target-dir="src/com/intel/cordova/inAppBilling" />
+		<config-file target="res/xml/config.xml" parent="/*">
+			<feature name="InAppBillingPlugin">
+				<param name="android-package" value="com.intel.cordova.inAppBilling.InAppBillingPlugin" />
+			</feature>
+		</config-file>
+		<!-- <config-file target="AndroidManifest.xml" parent="/*">
+			<uses-permission android:name="android.permission.READ_PHONE_STATE" />
+		</config-file> -->
+	</platform>
+</plugin>

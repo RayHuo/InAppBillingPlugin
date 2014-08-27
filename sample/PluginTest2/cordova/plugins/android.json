@@ -1,0 +1,33 @@
+{
+    "prepare_queue": {
+        "installed": [],
+        "uninstalled": []
+    },
+    "config_munge": {
+        "files": {
+            "res/xml/config.xml": {
+                "parents": {
+                    "/*": [
+                        {
+                            "xml": "<feature name=\"WechatPlugin\"><param name=\"android-package\" value=\"com.intel.cordova.wechat.WechatPlugin\" /></feature>",
+                            "count": 1
+                        },
+                        {
+                            "xml": "<feature name=\"InAppBillingPlugin\"><param name=\"android-package\" value=\"com.intel.cordova.inAppBilling.InAppBillingPlugin\" /></feature>",
+                            "count": 1
+                        }
+                    ]
+                }
+            }
+        }
+    },
+    "installed_plugins": {
+        "com.intel.cordova.wechat": {
+            "PACKAGE_NAME": "org.apache.cordova.PluginTest2"
+        },
+        "com.intel.cordova.inAppBilling": {
+            "PACKAGE_NAME": "org.apache.cordova.PluginTest2"
+        }
+    },
+    "dependent_plugins": {}
+}

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+		id="com.intel.cordova.wechat"
+		version="0.0.1">
+	<name>WechatPlugin</name>
+	<description>WechatPlugin Description</description>
+	<author>Intel</author>
+	<license>Apache 2.0 License</license>
+	<keywords>cordova, wechat api</keywords>
+	<js-module src="www/wechat.js" name="wechat">
+		<clobbers target="Wechat" />
+	</js-module>
+	<platform name="android">
+		<source-file src="src/android/WechatPlugin.java" target-dir="src/com/intel/cordova/wechat" />
+		<config-file target="res/xml/config.xml" parent="/*">
+			<feature name="WechatPlugin">
+				<param name="android-package" value="com.intel.cordova.wechat.WechatPlugin" />
+			</feature>
+		</config-file>
+		<!-- <config-file target="AndroidManifest.xml" parent="/*">
+			<uses-permission android:name="android.permission.READ_PHONE_STATE" />
+		</config-file> -->
+	</platform>
+</plugin>
