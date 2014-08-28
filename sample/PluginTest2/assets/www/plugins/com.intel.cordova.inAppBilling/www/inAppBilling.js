@@ -2,8 +2,8 @@ cordova.define("com.intel.cordova.inAppBilling.inAppBilling", function(require, 
 
 var InAppBilling = function() {  };
 
-InAppBilling.prototype.sendBilling = function(success, error) {
-	cordova.exec(success, error, 'InAppBillingPlugin', 'sendBilling', []);
+InAppBilling.prototype.sendBilling = function(success, error, jsonData) {
+	cordova.exec(success, error, 'InAppBillingPlugin', 'sendBilling', jsonData);
 };
 
 var inAppBilling = new InAppBilling();

@@ -4,6 +4,7 @@ import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CordovaWebView;
+import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
 
@@ -68,6 +69,8 @@ public class InAppBillingPlugin extends CordovaPlugin {
 	private Context context = null;
 	private Activity thisActivity = null;
 	private CallbackContext callbackContext = null;
+	private JSONArray JSData = null;	// This is the product info from js.
+	
 	private IWXAPI api = null;
 	// The four major key to apply access_token and package data for bill
 	private static final String APP_ID = "wxd930ea5d5a258f4f";
@@ -88,6 +91,7 @@ public class InAppBillingPlugin extends CordovaPlugin {
 	@Override
 	public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
 		if(ACTION_SEND_BILLING.equals(action)) {
+			JSData = args;
 			// register the app to wechat with APP_ID
 			api = WXAPIFactory.createWXAPI(context, APP_ID);
 			// api.registerApp(APP_ID);
@@ -335,16 +339,17 @@ public class InAppBillingPlugin extends CordovaPlugin {
 			nonceStr = genNonceStr();
 			json.put("noncestr", nonceStr);
 
+			
 			List<NameValuePair> packageParams = new LinkedList<NameValuePair>();
 			packageParams.add(new BasicNameValuePair("bank_type", "WX"));
-			packageParams.add(new BasicNameValuePair("body", "千足金箍棒"));
-			packageParams.add(new BasicNameValuePair("fee_type", "1"));
+			packageParams.add(new BasicNameValuePair("body", JSData.getJSONObject(0).getString("body")));
+			packageParams.add(new BasicNameValuePair("fee_type", "1"));	 // default currency type : RMB
 			packageParams.add(new BasicNameValuePair("input_charset", "UTF-8"));
 			packageParams.add(new BasicNameValuePair("notify_url", "http://weixin.qq.com"));
 			packageParams.add(new BasicNameValuePair("out_trade_no", genOutTradNo()));
-			packageParams.add(new BasicNameValuePair("partner", "1900000109"));
-			packageParams.add(new BasicNameValuePair("spbill_create_ip", "196.168.1.1"));
-			packageParams.add(new BasicNameValuePair("total_fee", "1"));
+			packageParams.add(new BasicNameValuePair("partner", JSData.getJSONObject(0).getString("partner")));	
+			packageParams.add(new BasicNameValuePair("spbill_create_ip", JSData.getJSONObject(0).getString("IP")));	// user pubilc internet ip
+			packageParams.add(new BasicNameValuePair("total_fee", JSData.getJSONObject(0).getString("totalFee")));	// total fee 1 = 0.01 RMB.
 			packageValue = genPackage(packageParams);
 
 			json.put("package", packageValue);
