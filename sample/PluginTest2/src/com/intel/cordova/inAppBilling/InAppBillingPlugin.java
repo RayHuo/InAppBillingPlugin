@@ -66,6 +66,7 @@ import android.content.Context;
 public class InAppBillingPlugin extends CordovaPlugin {
 	public static final String TAG = "InAppBillingPlugin";
 	public static final String ACTION_SEND_BILLING = "sendBilling";
+	public static final String ACTION_SEND_REFUND = "sendRefund";
 	private Context context = null;
 	private Activity thisActivity = null;
 	private CallbackContext callbackContext = null;
@@ -86,28 +87,29 @@ public class InAppBillingPlugin extends CordovaPlugin {
 		super.initialize(cordova, webView);
 		context = this.cordova.getActivity().getApplicationContext();
 		thisActivity = this.cordova.getActivity();
+		api = WXAPIFactory.createWXAPI(context, APP_ID);	// register the app to wechat with APP_ID
+		boolean registerResult = api.registerApp(APP_ID);
+		Toast.makeText(context, "Register result = " + registerResult, Toast.LENGTH_LONG).show();
 	}
 
 	@Override
 	public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
+		JSData = args;		// get the 
 		if(ACTION_SEND_BILLING.equals(action)) {
-			JSData = args;
-			// register the app to wechat with APP_ID
-			api = WXAPIFactory.createWXAPI(context, APP_ID);
-			// api.registerApp(APP_ID);
-			boolean registerResult = api.registerApp(APP_ID);
-			Toast.makeText(context, "Register result = " + registerResult, Toast.LENGTH_LONG).show();
-
 			new GetAccessTokenTask().execute();
-
 			callbackContext.success("Send Pay successfully");
+			return true;
+		}
+		if(ACTION_SEND_REFUND.equals(action)) {
+			
+			callbackContext.success("Send Refund successfully");
 			return true;
 		}
 		return false;
 	}
 
-
 	/*
+	 * The next functions for wechat billing with get access_token and prepayId
 	 * Get access_token task and result
 	 */
 	private class GetAccessTokenTask extends AsyncTask<Void, Void, GetAccessTokenResult> {
@@ -145,7 +147,7 @@ public class InAppBillingPlugin extends CordovaPlugin {
 						APP_ID, APP_SECRET);
 			Log.d(TAG, "Get access_token, url = " + url);
 
-			byte[] buf = httpGet(url);
+			byte[] buf = Util.httpGet(url);
 			if(buf == null || buf.length == 0) {
 				result.localRetCode = LocalRetCode.ERR_HTTP;
 				return result;
@@ -239,7 +241,7 @@ public class InAppBillingPlugin extends CordovaPlugin {
 
 			GetPrepayIdResult result = new GetPrepayIdResult();
 
-			byte[] buf = httpPost(url, entity);
+			byte[] buf = Util.httpPost(url, entity);
 			if(buf == null || buf.length == 0) {
 				result.localRetCode = LocalRetCode.ERR_HTTP;
 				return result;
@@ -322,7 +324,7 @@ public class InAppBillingPlugin extends CordovaPlugin {
 		sb.append('=');
 		sb.append(params.get(i).getValue());
 
-		String sha1 = sha1(sb.toString());
+		String sha1 = Util.sha1(sb.toString());
 		Log.d(TAG, "genSign, sha1 = " + sha1);
 		return sha1;
 	}
@@ -411,152 +413,6 @@ public class InAppBillingPlugin extends CordovaPlugin {
 		req.sign = genSign(signParams);
 
 		api.sendReq(req);
-	}
-
-	/*
-	 * http request and response for get and post data.
-	 */
-	private byte[] httpGet(final String url) {
-		if(url == null || url.length() == 0) {
-			Log.e(TAG, "httpGet, url is null");
-			return null;
-		}
-
-		HttpClient httpClient = getNewHttpClient();
-		HttpGet httpGet_ = new HttpGet(url);
-
-		try {
-			HttpResponse resp = httpClient.execute(httpGet_);
-			if(resp.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-				Log.e(TAG, "httpGet fail, status code = " + resp.getStatusLine().getStatusCode());
-				return null;
-			}
-
-			return EntityUtils.toByteArray(resp.getEntity());
-		} catch(Exception e) {
-			Log.e(TAG, "httpGet exception, e = " + e.getMessage());
-			e.printStackTrace();
-			return null;
-		}
-	}
-
-	private byte[] httpPost(String url, String entity) {
-		if(url == null || url.length() == 0) {
-			Log.e(TAG, "httpPost, url is null");
-			return null;
-		}
-
-		HttpClient httpClient = getNewHttpClient();
-		HttpPost httpPost_ = new HttpPost(url);
-
-		try {
-			httpPost_.setEntity(new StringEntity(entity));
-			httpPost_.setHeader("Accept", "application/json");
-			httpPost_.setHeader("Content-type", "application/json");
-
-			HttpResponse resp = httpClient.execute(httpPost_);
-			if(resp.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-				Log.e(TAG, "httpGet fail, status code = " + resp.getStatusLine().getStatusCode());
-				return null;
-			}
-
-			return EntityUtils.toByteArray(resp.getEntity());
-		} catch(Exception e) {
-			Log.e(TAG, "httpPost exception, e = " + e.getMessage());
-			e.printStackTrace();
-			return null;
-		}
-	}
-
-	private HttpClient getNewHttpClient() {
-		try {
-			KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
-			trustStore.load(null, null);
-
-			SSLSocketFactory sf = new SSLSocketFactoryEx(trustStore);
-			sf.setHostnameVerifier(SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
-
-			HttpParams params = new BasicHttpParams();
-			HttpProtocolParams.setVersion(params, HttpVersion.HTTP_1_1);
-			HttpProtocolParams.setContentCharset(params, HTTP.UTF_8);
-
-			SchemeRegistry registry = new SchemeRegistry();
-			registry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
-			registry.register(new Scheme("https", sf, 443));
-
-			ClientConnectionManager ccm = new ThreadSafeClientConnManager(params, registry);
-
-			return new DefaultHttpClient(ccm, params);
-
-		} catch(Exception e) {
-			return new DefaultHttpClient();
-		}
-	}
-
-	private static class SSLSocketFactoryEx extends SSLSocketFactory {
-		SSLContext sslContext = SSLContext.getInstance("TLS");
-
-		public SSLSocketFactoryEx(KeyStore trustStore) throws NoSuchAlgorithmException, KeyManagementException, KeyStoreException, UnrecoverableKeyException {
-			super(trustStore);
-
-			TrustManager tm = new X509TrustManager() {
-				public X509Certificate[] getAcceptedIssuers() {
-					return null;
-				}
-
-				@Override
-				public void checkClientTrusted(X509Certificate[] chain,
-						String authType) throws CertificateException {
-					// TODO Auto-generated method stub
-					
-				}
-
-				@Override
-				public void checkServerTrusted(X509Certificate[] chain,
-						String authType) throws CertificateException {
-					// TODO Auto-generated method stub
-					
-				}
-			};
-
-			sslContext.init(null, new TrustManager[] { tm }, null);
-		}
-
-		@Override
-		public Socket createSocket(Socket socket, String host, int port, boolean autoClose) throws IOException, UnknownHostException {
-			return sslContext.getSocketFactory().createSocket(socket, host, port, autoClose);
-		}
-
-		@Override
-		public Socket createSocket() throws IOException {
-			return sslContext.getSocketFactory().createSocket();
-		}
-	}
-
-	private String sha1(String str) {
-		if(str == null || str.length() == 0) {
-			return null;
-		}
-
-		char hexDigits[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-
-		try {
-			MessageDigest mdTemp = MessageDigest.getInstance("SHA1");
-			mdTemp.update(str.getBytes());
-
-			byte[] md = mdTemp.digest();
-			int j = md.length;
-			char buf[] = new char[j * 2];
-			int k = 0;
-			for(int i = 0; i < j; i++) {
-				byte byte0 = md[i];
-				buf[k++] = hexDigits[byte0 >>> 4 & 0xf];
-				buf[k++] = hexDigits[byte0 & 0xf];
-			}
-			return new String(buf);
-		} catch(Exception e) {
-			return null;
-		}
 	}
 
 }

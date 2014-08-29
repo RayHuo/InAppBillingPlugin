@@ -63,17 +63,6 @@ function sendInfo() {
 
 
 function sendPayReq() {
-    // var tableData = document.getElementById("food");
-    // var jsonData = [];
-    // var size = tableData.rows.length;
-    // var i = 0;
-    // for(i = 0; i < size; i++) {
-    //     var data = {};
-    //     data.name = tableData.rows[i].cells[0].innerHTML;
-    //     data.value = tableData.rows[i].cells[1].innerHTML;
-    //     jsonData.push(data);
-    // }
-
     var jsonData = [];
     var data = {};
     data.body = "千足金箍棒";
@@ -89,6 +78,24 @@ function sendPayReq() {
             // alert("Success : " + success);
         }, function(error) {
             // alert("Error : " + error);
+        }, jsonData);
+    });
+}
+
+
+function refund() {
+    var jsonData = [];
+    var data = {};
+    data.partner = "1900000109";
+    data.totalFee = 100;
+    jsonData.push(data);
+    document.addEventListener('deviceready', function() {
+        var sendRefundAPI = cordova.require('com.intel.cordova.inAppBilling.inAppBilling');
+
+        sendRefundAPI.sendRefund(function(success) {
+            // actions here. So far, no need
+        }, function(error) {
+            // actions here. So far, no need
         }, jsonData);
     });
 }
