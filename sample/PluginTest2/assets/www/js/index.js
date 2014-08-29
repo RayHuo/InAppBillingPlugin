@@ -87,7 +87,17 @@ function refund() {
     var jsonData = [];
     var data = {};
     data.partner = "1900000109";
-    data.totalFee = 100;
+    data.out_trade_no = "ji789g9g";
+    data.transaction_id = "ji789g9geg0";
+    data.out_refund_no = "1900000109";
+    data.total_fee = 100;
+    data.refund_fee = 90;
+    data.op_user_id = "1";
+    data.op_user_passwd = "123";
+    data.recv_user_id = "1";
+    data.recv_user_name = "Tom";
+    data.use_spbill_no_flag = "";
+    data.refund_type = 1;
     jsonData.push(data);
     document.addEventListener('deviceready', function() {
         var sendRefundAPI = cordova.require('com.intel.cordova.inAppBilling.inAppBilling');
