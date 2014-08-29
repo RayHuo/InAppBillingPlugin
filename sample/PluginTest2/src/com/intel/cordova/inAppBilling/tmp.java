@@ -36,7 +36,7 @@ public class InAppBillingPlugin extends CordovaPlugin {
 			return true;
 		}
 		if(ACTION_SEND_REFUND.equals(action)) {
-			
+			new SendRefundRequestTask().execute();
 			callbackContext.success("Send Refund successfully");
 			return true;
 		}
@@ -101,12 +101,35 @@ public class InAppBillingPlugin extends CordovaPlugin {
 		JSONObject jsonObj = new JSONObject();
 
 		try {
-			jsonObj.put();
-			
-			
-		} catch(Exception e) {
+			jsonObj.put("sign_type", "MD5");
+			jsonObj.put("input_charset", "utf-8");
+			jsonObj.put("sign_key_index", 1);
 
+			List<NameValuePair> packageParams = new LinkedList<NameValuePair>();
+			packageParams.add(new BasicNameValuePair("partner", JSONData.getJSONObject(0).getString("partner")));
+			packageParams.add(new BasicNameValuePair("out_trade_no", JSONData.getJSONObject(0).getString("out_trade_no")));
+			packageParams.add(new BasicNameValuePair("transaction_id", JSONData.getJSONObject(0).getString("transaction_id")));
+			packageParams.add(new BasicNameValuePair("out_refund_no", JSONData.getJSONObject(0).getString("out_refund_no")));
+			packageParams.add(new BasicNameValuePair("total_fee", JSONData.getJSONObject(0).getString("total_fee")));
+			packageParams.add(new BasicNameValuePair("refund_fee", JSONData.getJSONObject(0).getString("refund_fee")));
+			packageParams.add(new BasicNameValuePair("op_user_id", JSONData.getJSONObject(0).getString("op_user_id")));
+			packageParams.add(new BasicNameValuePair("op_user_passwd", JSONData.getJSONObject(0).getString("op_user_passwd")));
+			packageParams.add(new BasicNameValuePair("recv_user_id", JSONData.getJSONObject(0).getString("recv_user_id")));
+			packageParams.add(new BasicNameValuePair("recv_user_name", JSONData.getJSONObject(0).getString("recv_user_name")));
+			packageParams.add(new BasicNameValuePair("use_spbill_no_flag", JSONData.getJSONObject(0).getString("use_spbill_no_flag")));
+			packageParams.add(new BasicNameValuePair("refund_type", JSONData.getJSONObject(0).getString("refund_type")));
+			packageValue = genPackage(packageParams);
+
+			jsonObj.put("package", packageValue);
+		} catch(Exception e) {
+			Log.e(TAG, "genRefundEntity fail, e = " + e.getMessage());
+			return null;
 		}
+		return jsonObj.toString();
+	}
+
+	private void sendRefundReq(SendRefundRequestResult result) {
+		
 	}
 
 }
