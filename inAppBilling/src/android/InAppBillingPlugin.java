@@ -4,7 +4,6 @@ import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CordovaWebView;
-import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
 
@@ -66,10 +65,14 @@ import android.content.Context;
 public class InAppBillingPlugin extends CordovaPlugin {
 	public static final String TAG = "InAppBillingPlugin";
 	public static final String ACTION_SEND_BILLING = "sendBilling";
+	public static final String ACTION_SEND_REFUND = "sendRefund";
+	public static final String ACTION_REFUND_DETAIL = "refundDetail";
+	public static final String ACTION_STATEMENT_ACCOUNT = "statementAccount";
 	private Context context = null;
 	private Activity thisActivity = null;
 	private CallbackContext callbackContext = null;
 	private JSONArray JSData = null;	// This is the product info from js.
+	private JSONObject callbackjsb = null;
 	
 	private IWXAPI api = null;
 	// The four major key to apply access_token and package data for bill
@@ -86,21 +89,35 @@ public class InAppBillingPlugin extends CordovaPlugin {
 		super.initialize(cordova, webView);
 		context = this.cordova.getActivity().getApplicationContext();
 		thisActivity = this.cordova.getActivity();
+		
+		// register the app to wechat with APP_ID
+		api = WXAPIFactory.createWXAPI(context, APP_ID);
+		// api.registerApp(APP_ID);
+		boolean registerResult = api.registerApp(APP_ID);
+		Toast.makeText(context, "Register result = " + registerResult, Toast.LENGTH_LONG).show();
 	}
 
 	@Override
 	public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
+		JSData = args;
 		if(ACTION_SEND_BILLING.equals(action)) {
-			JSData = args;
-			// register the app to wechat with APP_ID
-			api = WXAPIFactory.createWXAPI(context, APP_ID);
-			// api.registerApp(APP_ID);
-			boolean registerResult = api.registerApp(APP_ID);
-			Toast.makeText(context, "Register result = " + registerResult, Toast.LENGTH_LONG).show();
-
 			new GetAccessTokenTask().execute();
-
-			callbackContext.success("Send Pay successfully");
+			callbackContext.success(callbackjsb);
+			return true;
+		}
+		if(ACTION_SEND_REFUND.equals(action)) {
+			new SendRefundRequestTask().execute();
+			callbackContext.success(callbackjsb);
+			return true;
+		}
+		if(ACTION_REFUND_DETAIL.equals(action)) {
+			new GetRefundDetailTask().execute();
+			callbackContext.success(callbackjsb);
+			return true;
+		}
+		if(ACTION_STATEMENT_ACCOUNT.equals(action)) {
+			new GetStatementAccountTask().execute();
+			callbackContext.success(callbackjsb);
 			return true;
 		}
 		return false;
@@ -145,7 +162,7 @@ public class InAppBillingPlugin extends CordovaPlugin {
 						APP_ID, APP_SECRET);
 			Log.d(TAG, "Get access_token, url = " + url);
 
-			byte[] buf = httpGet(url);
+			byte[] buf = Util.httpGet(url);
 			if(buf == null || buf.length == 0) {
 				result.localRetCode = LocalRetCode.ERR_HTTP;
 				return result;
@@ -239,7 +256,7 @@ public class InAppBillingPlugin extends CordovaPlugin {
 
 			GetPrepayIdResult result = new GetPrepayIdResult();
 
-			byte[] buf = httpPost(url, entity);
+			byte[] buf = Util.httpPost(url, entity);
 			if(buf == null || buf.length == 0) {
 				result.localRetCode = LocalRetCode.ERR_HTTP;
 				return result;
@@ -283,6 +300,352 @@ public class InAppBillingPlugin extends CordovaPlugin {
 		}
 	}
 
+	
+	
+	/*
+	 * The next functions for refund
+	 */
+	private class SendRefundRequestTask extends AsyncTask<Void, Void, SendRefundRequestResult> {
+		private ProgressDialog dialog;
+
+		@Override
+		protected void onPreExecute() {
+			dialog = ProgressDialog.show(thisActivity, "Tips", "Sending refund request");
+		}
+
+		@Override
+		protected void onPostExecute(SendRefundRequestResult result) {
+			if(dialog != null) {
+				dialog.dismiss();
+			}
+
+			if(result.localRetCode == LocalRetCode.ERR_OK) {
+				Toast.makeText(context, "Refund success and retcode = " + result.retCode, Toast.LENGTH_LONG).show();
+				// No need to send another request 
+			}
+			else {
+				Toast.makeText(context, "Send refund request fail! " + result.localRetCode.name(), Toast.LENGTH_LONG).show();
+			}
+		}
+
+		@Override
+		protected void onCancelled() {
+			super.onCancelled();
+		}
+
+		@Override
+		protected SendRefundRequestResult doInBackground(Void... params) {
+			SendRefundRequestResult result = new SendRefundRequestResult();
+
+			String url = String.format("https://mch.tenpay.com/refundapi/gateway/refund.xml");
+			String entity = genRefundEntity();		// detail parameter data is in JSONData
+			Log.d(TAG, "doInBackground, url = " + url);
+			Log.d(TAG, "doInBackground, entity = " + entity);
+
+			// use url and entity to send http request and use post method to send data
+			byte[] buf = Util.httpPost(url, entity);
+			if(buf == null || buf.length == 0) {
+				result.localRetCode = LocalRetCode.ERR_HTTP;
+				return result;
+			}
+
+			String content = new String(buf);
+			Log.d(TAG, "doInBackground, content = " + content);
+			result.parseFrom(content);
+			return result;
+		}
+	}
+	
+	private static class SendRefundRequestResult {
+		private static final String TAG = "Crosswalk-cordova.InAppBillingPlugin.SendRefundRequestResult";
+		public LocalRetCode localRetCode = LocalRetCode.ERR_OTHER;
+		public int retCode;
+		public int errCode;
+		public String errMsg;
+
+		public void parseFrom(String content) {
+			if(content == null || content.length() <= 0) {
+				Log.e(TAG, "parseFrom fail, content is null");
+				localRetCode = LocalRetCode.ERR_JSON;
+				return;
+			}
+
+			try {
+				JSONObject json = new JSONObject(content);
+				if(json.has("retcode")) {
+					retCode = json.getInt("retcode");
+					localRetCode = LocalRetCode.ERR_OK;
+				}
+				else {
+					localRetCode = LocalRetCode.ERR_JSON;
+				}
+				errCode = json.getInt("errcode");
+				errMsg = json.getString("errmsg");
+			} catch(Exception e) {
+				localRetCode = LocalRetCode.ERR_JSON;
+			}
+		}
+	}
+
+	private String genRefundEntity() {
+		JSONObject jsonObj = new JSONObject();
+
+		try {
+			jsonObj.put("sign_type", "MD5");
+			jsonObj.put("input_charset", "utf-8");
+			jsonObj.put("sign_key_index", 1);
+
+			List<NameValuePair> packageParams = new LinkedList<NameValuePair>();
+			packageParams.add(new BasicNameValuePair("partner", JSData.getJSONObject(0).getString("partner")));
+			packageParams.add(new BasicNameValuePair("out_trade_no", JSData.getJSONObject(0).getString("out_trade_no")));
+			packageParams.add(new BasicNameValuePair("transaction_id", JSData.getJSONObject(0).getString("transaction_id")));
+			packageParams.add(new BasicNameValuePair("out_refund_no", JSData.getJSONObject(0).getString("out_refund_no")));
+			packageParams.add(new BasicNameValuePair("total_fee", JSData.getJSONObject(0).getString("total_fee")));
+			packageParams.add(new BasicNameValuePair("refund_fee", JSData.getJSONObject(0).getString("refund_fee")));
+			packageParams.add(new BasicNameValuePair("op_user_id", JSData.getJSONObject(0).getString("op_user_id")));
+			packageParams.add(new BasicNameValuePair("op_user_passwd", JSData.getJSONObject(0).getString("op_user_passwd")));
+			packageParams.add(new BasicNameValuePair("recv_user_id", JSData.getJSONObject(0).getString("recv_user_id")));
+			packageParams.add(new BasicNameValuePair("recv_user_name", JSData.getJSONObject(0).getString("recv_user_name")));
+			packageParams.add(new BasicNameValuePair("use_spbill_no_flag", JSData.getJSONObject(0).getString("use_spbill_no_flag")));
+			packageParams.add(new BasicNameValuePair("refund_type", JSData.getJSONObject(0).getString("refund_type")));
+			packageValue = genPackage(packageParams);
+
+			jsonObj.put("sign", packageValue);
+		} catch(Exception e) {
+			Log.e(TAG, "genRefundEntity fail, e = " + e.getMessage());
+			return null;
+		}
+		return jsonObj.toString();
+	}
+	
+	
+	
+	/*
+	 * The next functions for refund Detail request
+	 */
+	private class GetRefundDetailTask extends AsyncTask<Void, Void, GetRefundDetailResult> {
+		private ProgressDialog dialog;
+
+		@Override
+		protected void onPreExecute() {
+			dialog = ProgressDialog.show(thisActivity, "Tips", "Asking refund detail");
+		}
+
+		@Override
+		protected void onPostExecute(GetRefundDetailResult result) {
+			if(dialog != null) {
+				dialog.dismiss();
+			}
+
+			if(result.localRetCode == LocalRetCode.ERR_OK) {
+				Toast.makeText(context, "Refund Detail success and retcode = " + result.retCode, Toast.LENGTH_LONG).show();
+				// No need to send another request 
+			}
+			else {
+				Toast.makeText(context, "Ask refund detail fail! " + result.localRetCode.name(), Toast.LENGTH_LONG).show();
+			}
+		}
+
+		@Override
+		protected void onCancelled() {
+			super.onCancelled();
+		}
+
+		@Override
+		protected GetRefundDetailResult doInBackground(Void... params) {
+			GetRefundDetailResult result = new GetRefundDetailResult();
+
+			String url = String.format("https://gw.tenpay.com/gateway/normalrefundquery.xml");
+			String entity = genRefundDetail();		// detail parameter data is in JSONData
+			Log.d(TAG, "doInBackground, url = " + url);
+			Log.d(TAG, "doInBackground, entity = " + entity);
+
+			// use url and entity to send http request and use post method to send data
+			byte[] buf = Util.httpPost(url, entity);
+			if(buf == null || buf.length == 0) {
+				result.localRetCode = LocalRetCode.ERR_HTTP;
+				return result;
+			}
+
+			String content = new String(buf);
+			Log.d(TAG, "doInBackground, content = " + content);
+			result.parseFrom(content);
+			return result;
+		}
+	}
+	
+	private static class GetRefundDetailResult {
+		private static final String TAG = "Crosswalk-cordova.InAppBillingPlugin.GetRefundDetailResult";
+		public LocalRetCode localRetCode = LocalRetCode.ERR_OTHER;
+		public int retCode;
+		public int errCode;
+		public String errMsg;
+
+		public void parseFrom(String content) {
+			if(content == null || content.length() <= 0) {
+				Log.e(TAG, "parseFrom fail, content is null");
+				localRetCode = LocalRetCode.ERR_JSON;
+				return;
+			}
+
+			try {
+				JSONObject json = new JSONObject(content);
+				if(json.has("retcode")) {
+					retCode = json.getInt("retcode");
+					localRetCode = LocalRetCode.ERR_OK;
+				}
+				else {
+					localRetCode = LocalRetCode.ERR_JSON;
+				}
+				errCode = json.getInt("errcode");
+				errMsg = json.getString("errmsg");
+			} catch(Exception e) {
+				localRetCode = LocalRetCode.ERR_JSON;
+			}
+		}
+	}
+
+	private String genRefundDetail() {
+		JSONObject jsonObj = new JSONObject();
+
+		try {
+			jsonObj.put("sign_type", "MD5");
+			jsonObj.put("input_charset", "utf-8");
+			jsonObj.put("sign_key_index", 1);
+
+			List<NameValuePair> packageParams = new LinkedList<NameValuePair>();
+			packageParams.add(new BasicNameValuePair("partner", JSData.getJSONObject(0).getString("partner")));
+			packageParams.add(new BasicNameValuePair("out_trade_no", JSData.getJSONObject(0).getString("out_trade_no")));
+			packageParams.add(new BasicNameValuePair("transaction_id", JSData.getJSONObject(0).getString("transaction_id")));
+			packageParams.add(new BasicNameValuePair("out_refund_no", JSData.getJSONObject(0).getString("out_refund_no")));
+			packageParams.add(new BasicNameValuePair("refund_id", JSData.getJSONObject(0).getString("refund_id")));			
+			packageParams.add(new BasicNameValuePair("use_spbill_no_flag", JSData.getJSONObject(0).getString("use_spbill_no_flag")));
+			packageValue = genPackage(packageParams);
+
+			jsonObj.put("sign", packageValue);
+		} catch(Exception e) {
+			Log.e(TAG, "genRefundDetail fail, e = " + e.getMessage());
+			return null;
+		}
+		return jsonObj.toString();
+	}
+
+	
+	
+	
+	
+	/*
+	 * The next functions for statement account 
+	 */
+	private class GetStatementAccountTask extends AsyncTask<Void, Void, GetStatementAccountResult> {
+		private ProgressDialog dialog;
+
+		@Override
+		protected void onPreExecute() {
+			dialog = ProgressDialog.show(thisActivity, "Tips", "Asking statement account detail");
+		}
+
+		@Override
+		protected void onPostExecute(GetStatementAccountResult result) {
+			if(dialog != null) {
+				dialog.dismiss();
+			}
+
+			if(result.localRetCode == LocalRetCode.ERR_OK) {
+				Toast.makeText(context, "Statement account success and retcode = " + result.retCode, Toast.LENGTH_LONG).show();
+				// No need to send another request 
+			}
+			else {
+				Toast.makeText(context, "Ask statement account fail! " + result.localRetCode.name(), Toast.LENGTH_LONG).show();
+			}
+		}
+
+		@Override
+		protected void onCancelled() {
+			super.onCancelled();
+		}
+
+		@Override
+		protected GetStatementAccountResult doInBackground(Void... params) {
+			GetStatementAccountResult result = new GetStatementAccountResult();
+
+			String url = String.format("http://mch.tenpay.com/cgi-bin/mchdown_real_new.cgi");
+			String entity = genStatementAccount();		// detail parameter data is in JSONData
+			Log.d(TAG, "doInBackground, url = " + url);
+			Log.d(TAG, "doInBackground, entity = " + entity);
+
+			// use url and entity to send http request and use post method to send data
+			byte[] buf = Util.httpPost(url, entity);
+			if(buf == null || buf.length == 0) {
+				result.localRetCode = LocalRetCode.ERR_HTTP;
+				return result;
+			}
+
+			String content = new String(buf);
+			Log.d(TAG, "doInBackground, content = " + content);
+			result.parseFrom(content);
+			return result;
+		}
+	}
+	
+	private static class GetStatementAccountResult {
+		private static final String TAG = "Crosswalk-cordova.InAppBillingPlugin.GetStatementAccountResult";
+		public LocalRetCode localRetCode = LocalRetCode.ERR_OTHER;
+		public int retCode;
+		public int errCode;
+		public String errMsg;
+
+		public void parseFrom(String content) {
+			if(content == null || content.length() <= 0) {
+				Log.e(TAG, "parseFrom fail, content is null");
+				localRetCode = LocalRetCode.ERR_JSON;
+				return;
+			}
+
+			try {
+				JSONObject json = new JSONObject(content);
+				if(json.has("retcode")) {
+					retCode = json.getInt("retcode");
+					localRetCode = LocalRetCode.ERR_OK;
+				}
+				else {
+					localRetCode = LocalRetCode.ERR_JSON;
+				}
+				errCode = json.getInt("errcode");
+				errMsg = json.getString("errmsg");
+			} catch(Exception e) {
+				localRetCode = LocalRetCode.ERR_JSON;
+			}
+		}
+	}
+
+	private String genStatementAccount() {
+		JSONObject jsonObj = new JSONObject();
+
+		try {
+			jsonObj.put("sign_type", "MD5");
+			jsonObj.put("input_charset", "utf-8");
+			jsonObj.put("sign_key_index", 1);
+
+			List<NameValuePair> packageParams = new LinkedList<NameValuePair>();
+			packageParams.add(new BasicNameValuePair("spid", JSData.getJSONObject(0).getString("spid")));
+			packageParams.add(new BasicNameValuePair("trans_time", JSData.getJSONObject(0).getString("trans_time")));
+			packageParams.add(new BasicNameValuePair("stamp", JSData.getJSONObject(0).getString("stamp")));
+			packageParams.add(new BasicNameValuePair("cft_signtype", JSData.getJSONObject(0).getString("cft_signtype")));
+			packageParams.add(new BasicNameValuePair("mchtype", JSData.getJSONObject(0).getString("mchtype")));
+			packageValue = genPackage(packageParams);
+
+			jsonObj.put("sign", packageValue);
+		} catch(Exception e) {
+			Log.e(TAG, "genRefundDetail fail, e = " + e.getMessage());
+			return null;
+		}
+		return jsonObj.toString();
+	}
+	
+	
+	
+	
 
 	/*
 	 * Functions to generate parameters for the billing package post to wechat server via http
@@ -322,7 +685,7 @@ public class InAppBillingPlugin extends CordovaPlugin {
 		sb.append('=');
 		sb.append(params.get(i).getValue());
 
-		String sha1 = sha1(sb.toString());
+		String sha1 = Util.sha1(sb.toString());
 		Log.d(TAG, "genSign, sha1 = " + sha1);
 		return sha1;
 	}
@@ -339,7 +702,6 @@ public class InAppBillingPlugin extends CordovaPlugin {
 			nonceStr = genNonceStr();
 			json.put("noncestr", nonceStr);
 
-			
 			List<NameValuePair> packageParams = new LinkedList<NameValuePair>();
 			packageParams.add(new BasicNameValuePair("bank_type", "WX"));
 			packageParams.add(new BasicNameValuePair("body", JSData.getJSONObject(0).getString("body")));
@@ -412,151 +774,4 @@ public class InAppBillingPlugin extends CordovaPlugin {
 
 		api.sendReq(req);
 	}
-
-	/*
-	 * http request and response for get and post data.
-	 */
-	private byte[] httpGet(final String url) {
-		if(url == null || url.length() == 0) {
-			Log.e(TAG, "httpGet, url is null");
-			return null;
-		}
-
-		HttpClient httpClient = getNewHttpClient();
-		HttpGet httpGet_ = new HttpGet(url);
-
-		try {
-			HttpResponse resp = httpClient.execute(httpGet_);
-			if(resp.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-				Log.e(TAG, "httpGet fail, status code = " + resp.getStatusLine().getStatusCode());
-				return null;
-			}
-
-			return EntityUtils.toByteArray(resp.getEntity());
-		} catch(Exception e) {
-			Log.e(TAG, "httpGet exception, e = " + e.getMessage());
-			e.printStackTrace();
-			return null;
-		}
-	}
-
-	private byte[] httpPost(String url, String entity) {
-		if(url == null || url.length() == 0) {
-			Log.e(TAG, "httpPost, url is null");
-			return null;
-		}
-
-		HttpClient httpClient = getNewHttpClient();
-		HttpPost httpPost_ = new HttpPost(url);
-
-		try {
-			httpPost_.setEntity(new StringEntity(entity));
-			httpPost_.setHeader("Accept", "application/json");
-			httpPost_.setHeader("Content-type", "application/json");
-
-			HttpResponse resp = httpClient.execute(httpPost_);
-			if(resp.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-				Log.e(TAG, "httpGet fail, status code = " + resp.getStatusLine().getStatusCode());
-				return null;
-			}
-
-			return EntityUtils.toByteArray(resp.getEntity());
-		} catch(Exception e) {
-			Log.e(TAG, "httpPost exception, e = " + e.getMessage());
-			e.printStackTrace();
-			return null;
-		}
-	}
-
-	private HttpClient getNewHttpClient() {
-		try {
-			KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
-			trustStore.load(null, null);
-
-			SSLSocketFactory sf = new SSLSocketFactoryEx(trustStore);
-			sf.setHostnameVerifier(SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
-
-			HttpParams params = new BasicHttpParams();
-			HttpProtocolParams.setVersion(params, HttpVersion.HTTP_1_1);
-			HttpProtocolParams.setContentCharset(params, HTTP.UTF_8);
-
-			SchemeRegistry registry = new SchemeRegistry();
-			registry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
-			registry.register(new Scheme("https", sf, 443));
-
-			ClientConnectionManager ccm = new ThreadSafeClientConnManager(params, registry);
-
-			return new DefaultHttpClient(ccm, params);
-
-		} catch(Exception e) {
-			return new DefaultHttpClient();
-		}
-	}
-
-	private static class SSLSocketFactoryEx extends SSLSocketFactory {
-		SSLContext sslContext = SSLContext.getInstance("TLS");
-
-		public SSLSocketFactoryEx(KeyStore trustStore) throws NoSuchAlgorithmException, KeyManagementException, KeyStoreException, UnrecoverableKeyException {
-			super(trustStore);
-
-			TrustManager tm = new X509TrustManager() {
-				public X509Certificate[] getAcceptedIssuers() {
-					return null;
-				}
-
-				@Override
-				public void checkClientTrusted(X509Certificate[] chain,
-						String authType) throws CertificateException {
-					// TODO Auto-generated method stub
-					
-				}
-
-				@Override
-				public void checkServerTrusted(X509Certificate[] chain,
-						String authType) throws CertificateException {
-					// TODO Auto-generated method stub
-					
-				}
-			};
-
-			sslContext.init(null, new TrustManager[] { tm }, null);
-		}
-
-		@Override
-		public Socket createSocket(Socket socket, String host, int port, boolean autoClose) throws IOException, UnknownHostException {
-			return sslContext.getSocketFactory().createSocket(socket, host, port, autoClose);
-		}
-
-		@Override
-		public Socket createSocket() throws IOException {
-			return sslContext.getSocketFactory().createSocket();
-		}
-	}
-
-	private String sha1(String str) {
-		if(str == null || str.length() == 0) {
-			return null;
-		}
-
-		char hexDigits[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-
-		try {
-			MessageDigest mdTemp = MessageDigest.getInstance("SHA1");
-			mdTemp.update(str.getBytes());
-
-			byte[] md = mdTemp.digest();
-			int j = md.length;
-			char buf[] = new char[j * 2];
-			int k = 0;
-			for(int i = 0; i < j; i++) {
-				byte byte0 = md[i];
-				buf[k++] = hexDigits[byte0 >>> 4 & 0xf];
-				buf[k++] = hexDigits[byte0 & 0xf];
-			}
-			return new String(buf);
-		} catch(Exception e) {
-			return null;
-		}
-	}
-
 }

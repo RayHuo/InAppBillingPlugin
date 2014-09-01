@@ -61,7 +61,6 @@ function sendInfo() {
     });
 }
 
-
 function sendPayReq() {
     var jsonData = [];
     var data = {};
@@ -87,22 +86,71 @@ function refund() {
     var jsonData = [];
     var data = {};
     data.partner = "1900000109";
-    data.out_trade_no = "ji789g9g";
-    data.transaction_id = "ji789g9geg0";
-    data.out_refund_no = "1900000109";
+    data.out_trade_no = "";
+    data.transaction_id = "";
+    data.out_refund_no = "";
     data.total_fee = 100;
-    data.refund_fee = 90;
-    data.op_user_id = "1";
-    data.op_user_passwd = "123";
-    data.recv_user_id = "1";
-    data.recv_user_name = "Tom";
+    data.refund_fee = 100;
+    data.op_user_id = "";
+    data.op_user_passwd = "";
+    data.recv_user_id = "";
+    data.recv_user_name = "";
     data.use_spbill_no_flag = "";
     data.refund_type = 1;
+
     jsonData.push(data);
+
     document.addEventListener('deviceready', function() {
         var sendRefundAPI = cordova.require('com.intel.cordova.inAppBilling.inAppBilling');
 
         sendRefundAPI.sendRefund(function(success) {
+            // actions here. So far, no need
+        }, function(error) {
+            // actions here. So far, no need
+        }, jsonData);
+    });
+}
+
+
+function refundDetail() {
+    var jsonData = [];
+    var data = {};
+    data.partner = "1900000109";
+    data.out_trade_no = "";
+    data.transaction_id = "";
+    data.out_refund_no = "";
+    data.refund_id = "";
+    data.use_spbill_no_flag = "";
+
+    jsonData.push(data);
+
+    document.addEventListener('deviceready', function() {
+        var refundDetailAPI = cordova.require('com.intel.cordova.inAppBilling.inAppBilling');
+
+        refundDetailAPI.refundDetail(function(success) {
+            // actions here. So far, no need
+        }, function(error) {
+            // actions here. So far, no need
+        }, jsonData);
+    });
+}
+
+
+function statementAccount() {
+    var jsonData = [];
+    var data = {};
+    data.spid = "1900000109";
+    data.trans_time = "";
+    data.stamp = "";
+    data.cft_signtype = "";
+    data.mchtype = "";
+
+    jsonData.push(data);
+
+    document.addEventListener('deviceready', function() {
+        var statementAccountAPI = cordova.require('com.intel.cordova.inAppBilling.inAppBilling');
+
+        statementAccountAPI.statementAccount(function(success) {
             // actions here. So far, no need
         }, function(error) {
             // actions here. So far, no need
