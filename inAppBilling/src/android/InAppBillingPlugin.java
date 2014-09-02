@@ -102,7 +102,7 @@ public class InAppBillingPlugin extends CordovaPlugin {
 		JSData = args;
 		if(ACTION_SEND_BILLING.equals(action)) {
 			new GetAccessTokenTask().execute();
-			callbackContext.success(callbackjsb);
+			callbackContext.success("Send payment successfully");
 			return true;
 		}
 		if(ACTION_SEND_REFUND.equals(action)) {
@@ -350,6 +350,16 @@ public class InAppBillingPlugin extends CordovaPlugin {
 			}
 
 			String content = new String(buf);
+			
+			JSONObject jsobj;
+			try {
+				jsobj = new JSONObject(content);
+				setcallbackjsb(jsobj);
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
 			Log.d(TAG, "doInBackground, content = " + content);
 			result.parseFrom(content);
 			return result;
@@ -468,6 +478,16 @@ public class InAppBillingPlugin extends CordovaPlugin {
 			}
 
 			String content = new String(buf);
+			
+			JSONObject jsobj;
+			try {
+				jsobj = new JSONObject(content);
+				setcallbackjsb(jsobj);
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
 			Log.d(TAG, "doInBackground, content = " + content);
 			result.parseFrom(content);
 			return result;
@@ -582,6 +602,16 @@ public class InAppBillingPlugin extends CordovaPlugin {
 			}
 
 			String content = new String(buf);
+			
+			JSONObject jsobj;
+			try {
+				jsobj = new JSONObject(content);
+				setcallbackjsb(jsobj);
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
 			Log.d(TAG, "doInBackground, content = " + content);
 			result.parseFrom(content);
 			return result;
@@ -773,5 +803,9 @@ public class InAppBillingPlugin extends CordovaPlugin {
 		req.sign = genSign(signParams);
 
 		api.sendReq(req);
+	}
+	
+	private void setcallbackjsb(JSONObject jsobj) {
+		callbackjsb = jsobj;
 	}
 }
